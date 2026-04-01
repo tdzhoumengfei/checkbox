@@ -121,7 +121,7 @@ jobs:
       regions_json: ${{ needs.read_inputs.outputs.region }}
       test_group: ${{ needs.read_inputs.outputs.test_group }}
       os: 'linux'
-      platform_type: 'browser'
+      platform_type: ${{ needs.read_inputs.outputs.platform_type }}
       github_workflow_run_id: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       github_repo_url: ${{ github.server_url }}/${{ github.repository }}
       event_name: ${{ github.event_name }}

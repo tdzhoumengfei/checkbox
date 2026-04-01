@@ -3,30 +3,35 @@ name: Synthetic Tests - PRD
 on:
   workflow_dispatch:
     inputs:
-      region_US:
-        description: 'Run US region'
+      region_all:
+        description: 'Run on ALL regions'
         required: false
-        default: true
+        default: false
+        type: boolean
+      region_US:
+        description: 'US Region'
+        required: false
+        default: false
         type: boolean
       region_EU:
-        description: 'Run EU region'
+        description: 'EU Region'
         required: false
-        default: true
+        default: false
         type: boolean
       region_CA:
-        description: 'Run CA region'
+        description: 'CA Region'
         required: false
-        default: true
+        default: false
         type: boolean
       region_AP:
-        description: 'Run AP region'
+        description: 'AP Region'
         required: false
-        default: true
+        default: false
         type: boolean
       region_UK:
-        description: 'Run UK region'
+        description: 'UK Region'
         required: false
-        default: true
+        default: false
         type: boolean
       test_group:
         description: 'Test group to run'
@@ -67,28 +72,38 @@ jobs:
         id: read
         run: |
           chmod -R 765 scripts/read-inputs.sh
-          # Build region from checkboxes (default to 'all' for schedule or if all are checked/unchecked)
+          PLATFORM_TYPE_INPUT="${{ github.event.inputs.platform_type || 'browser' }}"
+          TEST_GROUP_INPUT="${{ github.event.inputs.test_group || 'synthetic' }}"
+          # Build region from checkboxes (default to 'all' for schedule)
           REGION_INPUT="all"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SELECTED=""
-            [ "${{ github.event.inputs.region_US }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}US"
-            [ "${{ github.event.inputs.region_EU }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}EU"
-            [ "${{ github.event.inputs.region_CA }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}CA"
-            [ "${{ github.event.inputs.region_AP }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}AP"
-            [ "${{ github.event.inputs.region_UK }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}UK"
-            if [ -n "$SELECTED" ] && [ "$SELECTED" != "US,EU,CA,AP,UK" ]; then
-              REGION_INPUT="$SELECTED"
+            # If 'Run ALL regions' is checked, use 'all'
+            if [ "${{ github.event.inputs.region_all }}" = "true" ]; then
+              REGION_INPUT="all"
+            else
+              # Build from individual checkboxes
+              SELECTED=""
+              [ "${{ github.event.inputs.region_US }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}US"
+              [ "${{ github.event.inputs.region_EU }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}EU"
+              [ "${{ github.event.inputs.region_CA }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}CA"
+              [ "${{ github.event.inputs.region_AP }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}AP"
+              [ "${{ github.event.inputs.region_UK }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}UK"
+              if [ -n "$SELECTED" ]; then
+                REGION_INPUT="$SELECTED"
+              else
+                # No region selected, fallback to all
+                REGION_INPUT="all"
+              fi
             fi
           fi
-          ./scripts/read-inputs.sh "PRD" "$REGION_INPUT" "linux" "${{ github.event.inputs.platform_type || 'browser' }}" "synthetic" "${{ github.event_name }}"
-          TEST_GROUP="${{ github.event.inputs.test_group }}"
-          if [ -n "$TEST_GROUP" ] && [ "$TEST_GROUP" != "synthetic" ]; then
-            if [ "$TEST_GROUP" = "all" ]; then
+          ./scripts/read-inputs.sh "PRD" "$REGION_INPUT" "linux" "$PLATFORM_TYPE_INPUT" "$TEST_GROUP_INPUT" "${{ github.event_name }}"
+          if [ -n "$TEST_GROUP_INPUT" ] && [ "$TEST_GROUP_INPUT" != "synthetic" ]; then
+            if [ "$TEST_GROUP_INPUT" = "all" ]; then
               echo 'test_group=--grep-invert @lighthouse' >> "$GITHUB_OUTPUT"
-            elif [ "$TEST_GROUP" = "lighthouse" ]; then
+            elif [ "$TEST_GROUP_INPUT" = "lighthouse" ]; then
               echo 'test_group=--grep @lighthouse' >> "$GITHUB_OUTPUT"
             else
-              echo "test_group=--grep @$TEST_GROUP" >> "$GITHUB_OUTPUT"
+              echo "test_group=--grep @$TEST_GROUP_INPUT" >> "$GITHUB_OUTPUT"
             fi
           fi
       - name: Log Time
@@ -106,7 +121,7 @@ jobs:
       regions_json: ${{ needs.read_inputs.outputs.region }}
       test_group: ${{ needs.read_inputs.outputs.test_group }}
       os: 'linux'
-      platform_type: 'browser'
+      platform_type: ${{ needs.read_inputs.outputs.platform_type }}
       github_workflow_run_id: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       github_repo_url: ${{ github.server_url }}/${{ github.repository }}
       event_name: ${{ github.event_name }}
