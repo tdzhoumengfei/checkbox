@@ -60,6 +60,8 @@ jobs:
         id: read
         run: |
           chmod -R 765 scripts/read-inputs.sh
+          PLATFORM_TYPE_INPUT="${{ github.event.inputs.platform_type || 'browser' }}"
+          TEST_GROUP_INPUT="${{ github.event.inputs.test_group || 'synthetic' }}"
           # Build region from checkboxes (default to 'all' for schedule)
           REGION_INPUT="all"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -82,15 +84,14 @@ jobs:
               fi
             fi
           fi
-          ./scripts/read-inputs.sh "PRD" "$REGION_INPUT" "linux" "${{ github.event.inputs.platform_type || 'browser' }}" "synthetic" "${{ github.event_name }}"
-          TEST_GROUP="${{ github.event.inputs.test_group }}"
-          if [ -n "$TEST_GROUP" ] && [ "$TEST_GROUP" != "synthetic" ]; then
-            if [ "$TEST_GROUP" = "all" ]; then
+          ./scripts/read-inputs.sh "PRD" "$REGION_INPUT" "linux" "$PLATFORM_TYPE_INPUT" "$TEST_GROUP_INPUT" "${{ github.event_name }}"
+          if [ -n "$TEST_GROUP_INPUT" ] && [ "$TEST_GROUP_INPUT" != "synthetic" ]; then
+            if [ "$TEST_GROUP_INPUT" = "all" ]; then
               echo 'test_group=--grep-invert @lighthouse' >> "$GITHUB_OUTPUT"
-            elif [ "$TEST_GROUP" = "lighthouse" ]; then
+            elif [ "$TEST_GROUP_INPUT" = "lighthouse" ]; then
               echo 'test_group=--grep @lighthouse' >> "$GITHUB_OUTPUT"
             else
-              echo "test_group=--grep @$TEST_GROUP" >> "$GITHUB_OUTPUT"
+              echo "test_group=--grep @$TEST_GROUP_INPUT" >> "$GITHUB_OUTPUT"
             fi
           fi
       - name: Log Time
