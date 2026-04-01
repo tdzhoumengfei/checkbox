@@ -1,0 +1,100 @@
+name: Reusable Synthetic Run Test
+
+on:
+  workflow_call:
+    inputs:
+      regions_json:
+        description: 'JSON array of regions to test'
+        required: true
+        type: string
+      test_group:
+        description: 'Test group grep pattern'
+        required: false
+        type: string
+        default: ''
+      os:
+        description: 'Operating system'
+        required: true
+        type: string
+      platform_type:
+        description: 'Platform type (browser/all)'
+        required: false
+        type: string
+        default: 'browser'
+      github_workflow_run_id:
+        description: 'GitHub workflow run URL'
+        required: false
+        type: string
+      github_repo_url:
+        description: 'GitHub repository URL'
+        required: false
+        type: string
+      event_name:
+        description: 'GitHub event name'
+        required: false
+        type: string
+      concurrency_group:
+        description: 'Concurrency group name'
+        required: false
+        type: string
+        default: 'synthetic-e2e-tests'
+
+concurrency:
+  group: ${{ inputs.concurrency_group }}
+  cancel-in-progress: false
+
+jobs:
+  run_tests:
+    name: 'Test ${{ matrix.region }} (${{ inputs.os }})'
+    strategy:
+      fail-fast: false
+      matrix:
+        region: ${{ fromJSON(inputs.regions_json) }}
+    runs-on:
+      group: Load-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: |
+          npx playwright test ${{ inputs.test_group }} \
+            --reporter=list,allure-playwright
+        env:
+          CI: true
+          TEST_ENV: ${{ matrix.region }}
+          PLATFORM_TYPE: ${{ inputs.platform_type }}
+          GITHUB_WORKFLOW_RUN_ID: ${{ inputs.github_workflow_run_id }}
+
+      - name: Compress allure results
+        if: always()
+        run: |
+          zip -r allure-results-${{ matrix.region }}-${{ inputs.os }}.zip allure-results/ || true
+
+      - name: Upload allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.region }}-${{ inputs.os }}
+          path: allure-results-${{ matrix.region }}-${{ inputs.os }}.zip
+          retention-days: 5
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.region }}-${{ inputs.os }}
+          path: test-results/
+          retention-days: 5

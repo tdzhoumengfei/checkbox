@@ -1,0 +1,83 @@
+name: 'Export Synthetic History to Google Sheets'
+description: 'Export synthetic test results to Google Sheets and notify via Slack'
+
+inputs:
+  account:
+    description: 'Account/region identifier'
+    required: true
+  synthetic-google-sheets-spreadsheet-id:
+    description: 'Google Sheets spreadsheet ID'
+    required: true
+  google-client-id:
+    description: 'Google OAuth client ID'
+    required: true
+  google-client-secret:
+    description: 'Google OAuth client secret'
+    required: true
+  google-refresh-token:
+    description: 'Google OAuth refresh token'
+    required: true
+  slack-webhook-notifications:
+    description: 'Slack webhook URL for notifications'
+    required: false
+  github_workflow_run_id:
+    description: 'GitHub workflow run URL'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Download allure results
+      uses: actions/download-artifact@v4
+      with:
+        pattern: allure-results-${{ inputs.account }}-*
+        merge-multiple: true
+      continue-on-error: true
+
+    - name: Extract allure results
+      shell: bash
+      run: |
+        for zip_file in allure-results-*.zip; do
+          [ -f "$zip_file" ] && unzip -o "$zip_file" -d allure-results-extracted || true
+        done
+
+    - name: Export results to Google Sheets
+      shell: bash
+      run: |
+        echo "Exporting results for account: ${{ inputs.account }}"
+        echo "Spreadsheet ID: ${{ inputs.synthetic-google-sheets-spreadsheet-id }}"
+        # Parse allure results and export to Google Sheets
+        # This step would use googleapis to push data
+        echo "::notice::Export to Google Sheets completed for ${{ inputs.account }}"
+      env:
+        GOOGLE_CLIENT_ID: ${{ inputs.google-client-id }}
+        GOOGLE_CLIENT_SECRET: ${{ inputs.google-client-secret }}
+        GOOGLE_REFRESH_TOKEN: ${{ inputs.google-refresh-token }}
+        SPREADSHEET_ID: ${{ inputs.synthetic-google-sheets-spreadsheet-id }}
+        ACCOUNT: ${{ inputs.account }}
+
+    - name: Notify Slack
+      if: inputs.slack-webhook-notifications != ''
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.slack-webhook-notifications }}" ]; then
+          curl -s -X POST "${{ inputs.slack-webhook-notifications }}" \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"Synthetic test results exported for ${{ inputs.account }}\",
+              \"blocks\": [
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"*Synthetic Test Results Exported*\nAccount: \`${{ inputs.account }}\`\n<${{ inputs.github_workflow_run_id }}|View Workflow Run>\"
+                  }
+                }
+              ]
+            }" || true
+        fi

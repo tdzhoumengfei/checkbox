@@ -1,0 +1,73 @@
+name: 'Test Report Allure'
+description: 'Generate and upload Allure test report'
+
+inputs:
+  variables:
+    description: 'JSON string of repository variables'
+    required: false
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+  event-name:
+    description: 'GitHub event name'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Java (for Allure CLI)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install Allure CLI
+      shell: bash
+      run: |
+        ALLURE_VERSION="2.27.0"
+        curl -sL "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.zip" -o allure.zip
+        unzip -q allure.zip -d /opt/
+        ln -sf /opt/allure-${ALLURE_VERSION}/bin/allure /usr/local/bin/allure
+        allure --version
+
+    - name: Download all allure results
+      uses: actions/download-artifact@v4
+      with:
+        pattern: allure-results-*
+        path: allure-results-artifacts
+        merge-multiple: true
+
+    - name: Extract allure results
+      shell: bash
+      run: |
+        mkdir -p allure-results
+        for zip_file in allure-results-artifacts/*.zip; do
+          [ -f "$zip_file" ] && unzip -o "$zip_file" -d allure-results/ || true
+        done
+
+    - name: Download previous report history
+      uses: actions/download-artifact@v4
+      with:
+        name: allure-report-history
+        path: allure-results/history
+      continue-on-error: true
+
+    - name: Generate Allure report
+      shell: bash
+      run: |
+        allure generate allure-results --clean -o allure-report
+        echo "::notice::Allure report generated successfully"
+
+    - name: Upload Allure report
+      uses: actions/upload-artifact@v4
+      with:
+        name: allure-report
+        path: allure-report/
+        retention-days: 30
+
+    - name: Save report history
+      uses: actions/upload-artifact@v4
+      with:
+        name: allure-report-history
+        path: allure-report/history/
+        retention-days: 30

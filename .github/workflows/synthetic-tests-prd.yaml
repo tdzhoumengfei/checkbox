@@ -1,0 +1,177 @@
+name: Synthetic Tests - PRD
+
+on:
+  workflow_dispatch:
+    inputs:
+      region_US:
+        description: 'Run US region'
+        required: false
+        default: true
+        type: boolean
+      region_EU:
+        description: 'Run EU region'
+        required: false
+        default: true
+        type: boolean
+      region_CA:
+        description: 'Run CA region'
+        required: false
+        default: true
+        type: boolean
+      region_AP:
+        description: 'Run AP region'
+        required: false
+        default: true
+        type: boolean
+      region_UK:
+        description: 'Run UK region'
+        required: false
+        default: true
+        type: boolean
+      test_group:
+        description: 'Test group to run'
+        required: false
+        default: 'synthetic'
+        type: choice
+        options: [synthetic, all]
+      platform_type:
+        description: 'Platform Type'
+        required: false
+        default: 'browser'
+        type: choice
+        options: [all, browser]
+
+  schedule:
+    - cron: '1-59/15 * * * *'  # Every 15 minutes at 1,16,31,46
+
+jobs:
+  read_inputs:
+    name: Read inputs
+    runs-on:
+      group: Load-tests
+    outputs:
+      region: ${{ steps.read.outputs.region }}
+      allure-results: ${{ steps.read.outputs.allure-results }}
+      test_group: ${{ steps.read.outputs.test_group }}
+      platform_type: ${{ steps.read.outputs.platform_type }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: GitHub API Rate Limit
+        run: |
+          echo "GitHub API Rate Limit Status:"
+          gh api rate_limit --jq '.resources.core'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read inputs
+        id: read
+        run: |
+          chmod -R 765 scripts/read-inputs.sh
+          # Build region from checkboxes (default to 'all' for schedule or if all are checked/unchecked)
+          REGION_INPUT="all"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SELECTED=""
+            [ "${{ github.event.inputs.region_US }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}US"
+            [ "${{ github.event.inputs.region_EU }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}EU"
+            [ "${{ github.event.inputs.region_CA }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}CA"
+            [ "${{ github.event.inputs.region_AP }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}AP"
+            [ "${{ github.event.inputs.region_UK }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}UK"
+            if [ -n "$SELECTED" ] && [ "$SELECTED" != "US,EU,CA,AP,UK" ]; then
+              REGION_INPUT="$SELECTED"
+            fi
+          fi
+          ./scripts/read-inputs.sh "PRD" "$REGION_INPUT" "linux" "${{ github.event.inputs.platform_type || 'browser' }}" "synthetic" "${{ github.event_name }}"
+          TEST_GROUP="${{ github.event.inputs.test_group }}"
+          if [ -n "$TEST_GROUP" ] && [ "$TEST_GROUP" != "synthetic" ]; then
+            if [ "$TEST_GROUP" = "all" ]; then
+              echo 'test_group=--grep-invert @lighthouse' >> "$GITHUB_OUTPUT"
+            elif [ "$TEST_GROUP" = "lighthouse" ]; then
+              echo 'test_group=--grep @lighthouse' >> "$GITHUB_OUTPUT"
+            else
+              echo "test_group=--grep @$TEST_GROUP" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+      - name: Log Time
+        run: |
+          echo -n "Current datetime in UTC: "
+          date -u +"%Y-%m-%dT%H:%M:%S%z" # Display the current datetime in UTC
+
+  run_prd_linux:
+    name: 'Run PRD (Linux)'
+    if: always() && !cancelled()
+    needs: [read_inputs]
+    uses: ./.github/workflows/reusable-synthetic-run-test.yml
+    secrets: inherit
+    with:
+      regions_json: ${{ needs.read_inputs.outputs.region }}
+      test_group: ${{ needs.read_inputs.outputs.test_group }}
+      os: 'linux'
+      platform_type: 'browser'
+      github_workflow_run_id: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      github_repo_url: ${{ github.server_url }}/${{ github.repository }}
+      event_name: ${{ github.event_name }}
+      concurrency_group: synthetic-e2e-tests-prd
+
+  merge_test_results:
+    name: 'Merge test results'
+    if: always() && !cancelled() && needs.run_prd_linux.result != 'cancelled'
+    needs: [run_prd_linux, read_inputs]
+    environment: prod-synthetic
+    runs-on:
+      group: Load-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Merge test results
+        uses: Talkdesk/cicd-toolkit-extensions/merge-test-results@2.2.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          compressed-files: ${{ needs.read_inputs.outputs.allure-results }}
+
+  export_history:
+    name: 'Export results to Google Sheets'
+    if: always() && !cancelled() && needs.run_prd_linux.result != 'cancelled'
+    needs: [merge_test_results, read_inputs, run_prd_linux]
+    environment: synthetic-shared
+    continue-on-error: true
+    strategy:
+      matrix:
+        service: ${{ fromJSON(needs.read_inputs.outputs.region) }}
+    runs-on:
+      group: Load-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Export PRD synthetic results to Google Sheets (${{ matrix.service }})
+        uses: ./.github/actions/custom/export-synthetic-history-to-sheets
+        with:
+          account: ${{ matrix.service }}
+          synthetic-google-sheets-spreadsheet-id: ${{ vars['SYNTHETIC_GOOGLE_SHEETS_SPREADSHEET_ID'] }}
+          google-client-id: ${{ secrets['GOOGLE_CLIENT_ID'] }}
+          google-client-secret: ${{ secrets['GOOGLE_CLIENT_SECRET'] }}
+          google-refresh-token: ${{ secrets['GOOGLE_REFRESH_TOKEN'] }}
+          slack-webhook-notifications: ${{ vars['SLACK_WEBHOOK_QA_AI_PLATFORM_NOTIFICATIONS'] }}
+          github_workflow_run_id: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  test_report_allure:
+    name: 'Test report allure'
+    if: always() && !cancelled() && needs.run_prd_linux.result != 'cancelled'
+    needs: [merge_test_results, run_prd_linux]
+    environment: prod-synthetic
+    runs-on:
+      group: Load-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Generate and Upload Allure Test Report
+        uses: ./.github/actions/custom/test-report-allure
+        with:
+          variables: ${{ toJson(vars) }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          event-name: ${{ github.event_name }}
+
+      - name: Evaluate Allure Report
+        uses: Talkdesk/cicd-toolkit-extensions/evaluate-allure-test-report@1.1.0
