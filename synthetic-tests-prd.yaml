@@ -33,6 +33,18 @@ on:
         required: false
         default: false
         type: boolean
+      test_group:
+        description: 'Test group to run'
+        required: false
+        default: 'synthetic'
+        type: choice
+        options: [synthetic, all]
+      platform_type:
+        description: 'Platform Type'
+        required: false
+        default: 'browser'
+        type: choice
+        options: [all, browser]
 
   schedule:
     - cron: '1-59/15 * * * *'  # Every 15 minutes at 1,16,31,46
