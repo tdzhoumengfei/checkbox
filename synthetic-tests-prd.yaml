@@ -3,30 +3,35 @@ name: Synthetic Tests - PRD
 on:
   workflow_dispatch:
     inputs:
+      region_all:
+        description: 'Run ALL regions'
+        required: false
+        default: true
+        type: boolean
       region_US:
         description: 'Run US region'
         required: false
-        default: all
+        default: true
         type: boolean
       region_EU:
         description: 'Run EU region'
         required: false
-        default: all
+        default: true
         type: boolean
       region_CA:
         description: 'Run CA region'
         required: false
-        default: all
+        default: true
         type: boolean
       region_AP:
         description: 'Run AP region'
         required: false
-        default: all
+        default: true
         type: boolean
       region_UK:
         description: 'Run UK region'
         required: false
-        default: all
+        default: true
         type: boolean
       test_group:
         description: 'Test group to run'
@@ -67,17 +72,26 @@ jobs:
         id: read
         run: |
           chmod -R 765 scripts/read-inputs.sh
-          # Build region from checkboxes (default to 'all' for schedule or if all are checked/unchecked)
+          # Build region from checkboxes (default to 'all' for schedule)
           REGION_INPUT="all"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SELECTED=""
-            [ "${{ github.event.inputs.region_US }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}US"
-            [ "${{ github.event.inputs.region_EU }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}EU"
-            [ "${{ github.event.inputs.region_CA }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}CA"
-            [ "${{ github.event.inputs.region_AP }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}AP"
-            [ "${{ github.event.inputs.region_UK }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}UK"
-            if [ -n "$SELECTED" ] && [ "$SELECTED" != "US,EU,CA,AP,UK" ]; then
-              REGION_INPUT="$SELECTED"
+            # If 'Run ALL regions' is checked, use 'all'
+            if [ "${{ github.event.inputs.region_all }}" = "true" ]; then
+              REGION_INPUT="all"
+            else
+              # Build from individual checkboxes
+              SELECTED=""
+              [ "${{ github.event.inputs.region_US }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}US"
+              [ "${{ github.event.inputs.region_EU }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}EU"
+              [ "${{ github.event.inputs.region_CA }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}CA"
+              [ "${{ github.event.inputs.region_AP }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}AP"
+              [ "${{ github.event.inputs.region_UK }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}UK"
+              if [ -n "$SELECTED" ]; then
+                REGION_INPUT="$SELECTED"
+              else
+                # No region selected, fallback to all
+                REGION_INPUT="all"
+              fi
             fi
           fi
           ./scripts/read-inputs.sh "PRD" "$REGION_INPUT" "linux" "${{ github.event.inputs.platform_type || 'browser' }}" "synthetic" "${{ github.event_name }}"
