@@ -1,0 +1,11 @@
+exports.USER_EMAIL = process.env.AGENT_USERNAME
+exports.USER_PASSWORD = process.env.AGENT_PASSWORD
+exports.ACCOUNTNAME = process.env.ACCOUNTNAME
+
+exports.TOCALLER = process.env.TOCALLER
+exports.FROMCALLER = process.env.FROMCALLER
+exports.CALL_PROVIDER_API_URL = process.env.CALL_PROVIDER_API_URL
+exports.TEST_ENV = process.env.TEST_ENV
+
+exports.TWILIO_TOOLKIT_ACCOUNTSID=process.env.TWILIO_TOOLKIT_ACCOUNTSID
+exports.TWILIO_TOOLKIT_AUTHTOKEN=process.env.TWILIO_TOOLKIT_AUTHTOKEN

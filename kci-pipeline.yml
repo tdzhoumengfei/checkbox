@@ -1,0 +1,15 @@
+Build phase:
+  stages:
+    Playwright Tests:
+      when:
+        - PR
+        - master
+      type: tests
+      steps:
+        - ./scripts/load-env.sh
+        - ./scripts/test-runner.sh
+      archive_files:
+        - from_path: test-results/*/*.png
+        - from_path: test-results/*/*.webm
+      reports_allure:
+        - allure-results

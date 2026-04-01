@@ -1,0 +1,35 @@
+{
+  "name": "playwright-template",
+  "version": "1.0.0",
+  "description": "A Playwright template for future automated tests projects",
+  "main": "index.js",
+  "scripts": {
+    "test:local": "DEBUG=pw:api CALL_PROVIDER_API_URL=http://localhost:8080 playwright test",
+    "test:local:headed": "DEBUG=pw:api CALL_PROVIDER_API_URL=http://localhost:8080 playwright test --headed",
+    "test:docker:local": "./scripts/test-runner.sh",
+    "sipcall:docker:local": "docker-compose up -d call-provider",
+    "lint": "eslint .",
+    "lintfix": "eslint . --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Talkdesk/playwright-template.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Talkdesk/playwright-template/issues"
+  },
+  "homepage": "https://github.com/Talkdesk/playwright-template#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.23.2",
+    "allure-playwright": "^2.0.0-beta.18",
+    "eslint": "^8.14.0"
+  },
+  "dependencies": {
+    "@talkdesk/twilio-toolkit": "https://github.com/Talkdesk/twilio-toolkit#2.3.0",
+    "axios": "^0.27.2",
+    "dotenv": "^16.0.1"
+  }
+}

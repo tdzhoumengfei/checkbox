@@ -1,0 +1,6 @@
+<Response>
+    <Pause length="20"/>
+    <Say>This is an end to end test call from the agent mobile test project</Say>
+    <Pause length="120"/>
+    <Hangup/>
+</Response>
