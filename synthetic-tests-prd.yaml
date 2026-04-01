@@ -6,27 +6,27 @@ on:
       region_US:
         description: 'Run US region'
         required: false
-        default: true
+        default: all
         type: boolean
       region_EU:
         description: 'Run EU region'
         required: false
-        default: true
+        default: all
         type: boolean
       region_CA:
         description: 'Run CA region'
         required: false
-        default: true
+        default: all
         type: boolean
       region_AP:
         description: 'Run AP region'
         required: false
-        default: true
+        default: all
         type: boolean
       region_UK:
         description: 'Run UK region'
         required: false
-        default: true
+        default: all
         type: boolean
       test_group:
         description: 'Test group to run'
