@@ -4,47 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       region_all:
-        description: 'Run ALL regions'
+        description: 'Run on ALL regions'
         required: false
-        default: true
+        default: false
         type: boolean
       region_US:
-        description: 'Run US region'
+        description: 'US Region'
         required: false
-        default: true
+        default: false
         type: boolean
       region_EU:
-        description: 'Run EU region'
+        description: 'EU Region'
         required: false
-        default: true
+        default: false
         type: boolean
       region_CA:
-        description: 'Run CA region'
+        description: 'CA Region'
         required: false
-        default: true
+        default: false
         type: boolean
       region_AP:
-        description: 'Run AP region'
+        description: 'AP Region'
         required: false
-        default: true
+        default: false
         type: boolean
       region_UK:
-        description: 'Run UK region'
+        description: 'UK Region'
         required: false
-        default: true
+        default: false
         type: boolean
-      test_group:
-        description: 'Test group to run'
-        required: false
-        default: 'synthetic'
-        type: choice
-        options: [synthetic, all]
-      platform_type:
-        description: 'Platform Type'
-        required: false
-        default: 'browser'
-        type: choice
-        options: [all, browser]
 
   schedule:
     - cron: '1-59/15 * * * *'  # Every 15 minutes at 1,16,31,46
