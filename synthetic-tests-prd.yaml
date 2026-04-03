@@ -33,6 +33,16 @@ on:
         required: false
         default: false
         type: boolean
+      region_US_East1:
+        description: 'US East 1 Region'
+        required: false
+        default: false
+        type: boolean
+      region_EU_West1:
+        description: 'EU West 1 Region'
+        required: false
+        default: false
+        type: boolean
       test_group:
         description: 'Test group to run'
         required: false
@@ -44,7 +54,7 @@ on:
         required: false
         default: 'browser'
         type: choice
-        options: [all, browser]
+        options: [browser]
 
   schedule:
     - cron: '1-59/15 * * * *'  # Every 15 minutes at 1,16,31,46
@@ -77,21 +87,22 @@ jobs:
           # Build region from checkboxes (default to 'all' for schedule)
           REGION_INPUT="all"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # If 'Run ALL regions' is checked, use 'all'
             if [ "${{ github.event.inputs.region_all }}" = "true" ]; then
               REGION_INPUT="all"
             else
-              # Build from individual checkboxes
               SELECTED=""
               [ "${{ github.event.inputs.region_US }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}US"
               [ "${{ github.event.inputs.region_EU }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}EU"
               [ "${{ github.event.inputs.region_CA }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}CA"
               [ "${{ github.event.inputs.region_AP }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}AP"
               [ "${{ github.event.inputs.region_UK }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}UK"
+              if [ "$TEST_GROUP_INPUT" = "synthetic" ]; then
+                [ "${{ github.event.inputs.region_US_East1 }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}prd-us-east1-synthetic"
+                [ "${{ github.event.inputs.region_EU_West1 }}" = "true" ] && SELECTED="${SELECTED:+$SELECTED,}prd-eu-west1-synthetic"
+              fi
               if [ -n "$SELECTED" ]; then
                 REGION_INPUT="$SELECTED"
               else
-                # No region selected, fallback to all
                 REGION_INPUT="all"
               fi
             fi
@@ -100,20 +111,16 @@ jobs:
           if [ -n "$TEST_GROUP_INPUT" ] && [ "$TEST_GROUP_INPUT" != "synthetic" ]; then
             if [ "$TEST_GROUP_INPUT" = "all" ]; then
               echo 'test_group=--grep-invert @lighthouse' >> "$GITHUB_OUTPUT"
-            elif [ "$TEST_GROUP_INPUT" = "lighthouse" ]; then
-              echo 'test_group=--grep @lighthouse' >> "$GITHUB_OUTPUT"
-            else
-              echo "test_group=--grep @$TEST_GROUP_INPUT" >> "$GITHUB_OUTPUT"
             fi
           fi
       - name: Log Time
         run: |
           echo -n "Current datetime in UTC: "
-          date -u +"%Y-%m-%dT%H:%M:%S%z" # Display the current datetime in UTC
+          date -u +"%Y-%m-%dT%H:%M:%S%z"
 
   run_prd_linux:
     name: 'Run PRD (Linux)'
-    if: always() && !cancelled()
+    if: always() && !cancelled() && needs.read_inputs.outputs.region != '[]'
     needs: [read_inputs]
     uses: ./.github/workflows/reusable-synthetic-run-test.yml
     secrets: inherit
@@ -144,9 +151,15 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           compressed-files: ${{ needs.read_inputs.outputs.allure-results }}
 
+      - name: Check Rate Limit on Failure
+        if: failure()
+        run: gh api rate_limit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   export_history:
     name: 'Export results to Google Sheets'
-    if: always() && !cancelled() && needs.run_prd_linux.result != 'cancelled'
+    if: always() && !cancelled() && needs.run_prd_linux.result != 'cancelled' && needs.read_inputs.outputs.region != '[]'
     needs: [merge_test_results, read_inputs, run_prd_linux]
     environment: synthetic-shared
     continue-on-error: true

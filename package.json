@@ -6,6 +6,8 @@
   "scripts": {
     "test:local": "DEBUG=pw:api CALL_PROVIDER_API_URL=http://localhost:8080 playwright test",
     "test:local:headed": "DEBUG=pw:api CALL_PROVIDER_API_URL=http://localhost:8080 playwright test --headed",
+    "test:synthetic": "playwright test --grep @synthetic",
+    "test:synthetic:headed": "playwright test --grep @synthetic --headed",
     "test:docker:local": "./scripts/test-runner.sh",
     "sipcall:docker:local": "docker-compose up -d call-provider",
     "lint": "eslint .",

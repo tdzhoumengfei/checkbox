@@ -69,6 +69,18 @@ npm run test:local
 npm run test:local:headed
 ````
 
+- Run synthetic tests only:
+
+````npm
+npm run test:synthetic
+````
+
+- Run synthetic tests only in headed mode:
+
+````npm
+npm run test:synthetic:headed
+````
+
 
 - Run all tests locally with Docker:
 
@@ -105,6 +117,10 @@ allure generate ./allure-results --clean && allure open ./allure-report
 If you want/need to change the generated reports, just change them by modifying your config file (*playwright.config.js*)
 
 ## Inbounds: running sip-call-provider locally [optional] and/or twillio-toolkit
+
+## Synthetic Tests
+
+Synthetic smoke tests are in `tests/specs/synthetic` and use the `@synthetic` tag so they can be selected by CI workflows with `--grep @synthetic`.
 
 You can find configured in this project two options for getting an inbound call in the tests: 
 - sip-call-provider
