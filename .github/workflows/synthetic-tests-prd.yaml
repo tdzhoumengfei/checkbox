@@ -56,8 +56,8 @@ on:
         type: choice
         options: [browser]
 
-  schedule:
-    - cron: '1-59/15 * * * *'  # Every 15 minutes at 1,16,31,46
+  # schedule:
+    # - cron: '1-59/15 * * * *'  # Every 15 minutes at 1,16,31,46
 
 jobs:
   read_inputs:
